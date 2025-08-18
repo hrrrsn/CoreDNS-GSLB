@@ -129,3 +129,11 @@ Execute linter before to commit
 ```bash
 make lint
 ```
+# Update CoreDNS
+
+```bash
+go mod edit -go=1.24
+go get github.com/coredns/coredns@v1.12.3
+go get github.com/miekg/dns@v1.1.68
+go mod tidy
+```

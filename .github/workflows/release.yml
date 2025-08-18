@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 env:
-  COREDNS_VERSION: "1.12.2"
-  GO_VERSION: "1.23"
+  COREDNS_VERSION: "1.12.3"
+  GO_VERSION: "1.24"
 
 jobs:
   release:
@@ -23,14 +23,14 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       
       - name: Checkout coredns
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: coredns/coredns
           ref: v${{ env.COREDNS_VERSION }}
           path: coredns
       
       - name: Checkout gslb plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: coredns-gslb
 
