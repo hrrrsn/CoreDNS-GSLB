@@ -14,9 +14,3 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-    regex-managers:
-      - file: "Dockerfile"
-        matchers:
-          - pattern: 'ARG COREDNS_VERSION=(?<version>.*)'
-        dependency-name: "coredns/coredns"
-        versioning-template: "v<version>"
