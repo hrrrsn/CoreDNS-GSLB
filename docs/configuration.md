@@ -12,7 +12,7 @@ gslb {
     geoip_maxmind country_db /coredns/GeoLite2-Country.mmdb
     geoip_maxmind city_db /coredns/GeoLite2-City.mmdb
     geoip_maxmind asn_db /coredns/GeoLite2-ASN.mmdb
-    geoip_custom_db /coredns/location_map.yml
+    geoip_custom /coredns/location_map.yml
     
     # Miscs
     use_edns_csubnet
@@ -38,7 +38,7 @@ gslb {
 
 * **zone**: Declare each DNS zone (with trailing dot) and its YAML record file. All records for a zone are loaded from the specified file. This directive can be repeated for multiple zones.
 * **geoip_maxmind <type> <path>**: Load a MaxMind GeoIP database. `<type>` can be `country_db`, `city_db`, or `asn_db`.
-* **geoip_custom_db**: Path to a YAML file mapping subnets to locations for GeoIP-based backend selection.
+* **geoip_custom**: Path to a YAML file mapping subnets to locations for GeoIP-based backend selection.
 
 ### Configuration Options
 
@@ -48,7 +48,7 @@ gslb {
 * `batch_size_start`: The number of backends to process simultaneously during startup (default: 100).
 * `geoip_maxmind <type> <path>`: Path to a MaxMind GeoLite2 database for GeoIP backend selection. `<type>` can be `country`, `city`, or `asn`.
 * `geoip_maxmind { ... }`: Block syntax for MaxMind DBs. Use `country_db`, `city_db`, and/or `asn_db` as keys inside the block to specify the database paths. Both syntaxes are supported and can be used interchangeably.
-* `geoip_custom_db`: Path to a YAML file mapping subnets to locations for GeoIP-based backend selection. Used for `geoip` mode (location-based routing).
+* `geoip_custom`: Path to a YAML file mapping subnets to locations for GeoIP-based backend selection. Used for `geoip` mode (location-based routing).
 * `use_edns_csubnet`: If set, the plugin will use the EDNS Client Subnet (ECS) option to determine the real client IP for GeoIP and logging. Recommended for deployments behind DNS forwarders or public resolvers.
 * `api_enable`: Enable or disable the HTTP API server (default: true). Set to `false` to disable the API endpoint.
 * `api_tls_cert`: Path to the TLS certificate file for the API server (optional, enables HTTPS if set with `api_tls_key`).
