@@ -36,6 +36,19 @@ func TestHTTPHealthCheck(t *testing.T) {
 			retries:       0,
 		},
 		{
+			name: "Success302IgnoreForward",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/health", r.URL.Path)
+				assert.Equal(t, "GET", r.Method)
+				w.Header().Set("Location", "/somewhere-else")
+				w.WriteHeader(302)
+				w.Write([]byte("OK"))
+			},
+			expectedError: false,
+			expectedCode:  302,
+			retries:       0,
+		},
+		{
 			name: "FailStatusCode",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(500)
