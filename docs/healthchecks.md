@@ -80,6 +80,10 @@ This feature helps optimize resource usage and backend load in large or dynamic 
 
 Checks the health of an HTTP or HTTPS endpoint by making a request and validating the response code and/or body.
 
+The HTTP health check connects to `backend.address` on given `params.port`. The `Host` header is set based on
+`params.host`, which does not overwrite the target address. HTTP forwards are not followed.
+
+
 ```yaml
 healthchecks:
   - type: http
