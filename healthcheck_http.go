@@ -67,6 +67,10 @@ func createHTTPClient(enableTLS bool, skipTLSVerify bool, timeout time.Duration)
 	return &http.Client{
 		Transport: transport,
 		Timeout:   timeout,
+		// do not follow redirects
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 }
 
