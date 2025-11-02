@@ -83,6 +83,7 @@ Checks the health of an HTTP or HTTPS endpoint by making a request and validatin
 The HTTP health check connects to `backend.address` on given `params.port`. The `Host` header is set based on
 `params.host`, which does not overwrite the target address. HTTP forwards are not followed.
 
+Debugging HTTP health checks is easier when the user agent is clearly visible in the server logs, so a predefined User-Agent value is set to CoreDNS/GSLB/....
 
 ```yaml
 healthchecks:
