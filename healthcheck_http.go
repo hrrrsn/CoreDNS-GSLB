@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/coredns/coredns/coremain"
 	"io"
 	"net"
 	"net/http"
 	"regexp"
 	"time"
+
+	"github.com/coredns/coredns/coremain"
 
 	"github.com/creasty/defaults"
 )
