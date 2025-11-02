@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,7 @@ func TestHTTPHealthCheck(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/health", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
+				assert.Regexp(t, regexp.MustCompile(`CoreDNS/.+ GSLB/.+`), r.Header.Get("User-Agent"))
 				w.WriteHeader(200)
 				w.Write([]byte("OK"))
 			},

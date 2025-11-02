@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/coredns/coredns/coremain"
+
 	"github.com/creasty/defaults"
 )
 
@@ -170,6 +172,7 @@ func (h *HTTPHealthCheck) PerformCheck(backend *Backend, fqdn string, maxRetries
 		return false
 	}
 	req.Host = h.Host
+	req.Header.Add("User-Agent", fmt.Sprintf("%s/%s GSLB/%s", coremain.CoreName, coremain.CoreVersion, Version))
 	for key, value := range h.Headers {
 		req.Header.Add(key, value)
 	}
