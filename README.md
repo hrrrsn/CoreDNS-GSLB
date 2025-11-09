@@ -151,3 +151,7 @@ dig @localhost TXT webapp.gslb.example.com  # Debug info
 
 Contributions are welcome! Please read the [Developer Guide](CONTRIBUTING.md) for local setup and testing instructions.
 
+## 🧰 Related Projects:
+
+- [DNS-tester](https://github.com/dmachard/DNS-tester) - DNS testing toolkit
+- [DNS-collector](https://github.com/dmachard/DNS-collector) - Grab your DNS logs, detect anomalies, and finally understand what's happening on your network.
