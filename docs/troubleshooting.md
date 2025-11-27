@@ -47,3 +47,30 @@ gslb {
 ~~~
 
 With `disable_txt` enabled, TXT queries for GSLB-managed zones will be passed to the next plugin (or return empty if none). No backend information will be exposed via TXT records.
+
+### Unexpected SOA / NXDOMAIN responses
+
+When running CoreDNS-GSLB behind any resolver that performs modern DNS probing, you may see intermittent responses returning only the SOA record or NXDOMAIN, even though the GSLB record is healthy.
+
+This is usually caused by resolvers are sending HTTPS (type 65) or SVCB DNS queries.
+CoreDNS-GSLB does not serve these record types for GSLB-managed zones, so it returns NXDOMAIN + SOA.
+Resolvers then cache this negative response, causing subsequent A/CNAME lookups to temporarily return the SOA instead of the correct GSLB result.
+
+Solution to prevent negative caching:
+
+Ignore HTTPS queries explicitly in your Corefile:
+
+```
+template IN HTTPS {
+    rcode NOERROR
+}
+```
+
+Optionally, you may also ignore SVCB queries:
+
+```
+template IN SVCB {
+    rcode NOERROR
+}
+```
+Issue report with full details: https://github.com/dmachard/CoreDNS-GSLB/issues/83
