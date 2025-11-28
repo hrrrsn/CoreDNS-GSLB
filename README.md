@@ -80,6 +80,7 @@ Create the `Corefile`
 ```
 .:53 {
     file /coredns/db.gslb.example.com gslb.example.com
+    template IN HTTPS { rcode NOERROR }
     gslb {
         zone  gslb.example.com. /coredns/db.gslb.example.com.yml
     }
