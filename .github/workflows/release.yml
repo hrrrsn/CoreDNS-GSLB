@@ -46,7 +46,48 @@ jobs:
           go generate
           make -f Makefile.release release -e LINUX_ARCH="amd64 arm64" VERSION=${{ github.ref_name }}
 
-      - name: Build release binary sha256
+      - name: Build CLI binaries
+        run: |
+          set -x -e
+          cd coredns-gslb
+          
+          # Build CLI for amd64
+          GOOS=linux GOARCH=amd64 go build -o gslbctl-linux-amd64 ./cli
+          
+          # Build CLI for arm64
+          GOOS=linux GOARCH=arm64 go build -o gslbctl-linux-arm64 ./cli
+
+      - name: Package binaries with CLI
+        run: |
+          set -x -e
+          cd coredns/release
+          
+          # Extract existing archives, add CLI, and repackage
+          for arch in amd64 arm64; do
+            archive="coredns_${{ github.ref_name }}_linux_${arch}.tgz"
+            if [ -f "$archive" ]; then
+              # Create temporary directory
+              tmpdir="coredns_tmp_$arch"
+              mkdir -p "$tmpdir"
+              
+              # Extract archive
+              tar xzf "$archive" -C "$tmpdir"
+              
+              # Copy CLI binary
+              cp "../../coredns-gslb/gslbctl-linux-${arch}" "$tmpdir/coredns/gslbctl"
+              chmod +x "$tmpdir/coredns/gslbctl"
+              
+              # Recreate archive
+              cd "$tmpdir"
+              tar czf "../$archive" coredns/
+              cd ..
+              
+              # Cleanup
+              rm -rf "$tmpdir"
+            fi
+          done
+
+      - name: Generate release binary sha256
         run: |
           cd coredns/release
           for asset in *.tgz; do 
