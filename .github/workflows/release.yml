@@ -57,34 +57,28 @@ jobs:
           # Build CLI for arm64
           GOOS=linux GOARCH=arm64 go build -o gslbctl-linux-arm64 ./cli
 
-      - name: Package binaries with CLI
+      - name: Package CLI binaries
         run: |
           set -x -e
           cd coredns/release
           
-          # Extract existing archives, add CLI, and repackage
+          # Create CLI packages for each architecture
           for arch in amd64 arm64; do
-            archive="coredns_${{ github.ref_name }}_linux_${arch}.tgz"
-            if [ -f "$archive" ]; then
-              # Create temporary directory
-              tmpdir="coredns_tmp_$arch"
-              mkdir -p "$tmpdir"
-              
-              # Extract archive
-              tar xzf "$archive" -C "$tmpdir"
-              
-              # Copy CLI binary
-              cp "../../coredns-gslb/gslbctl-linux-${arch}" "$tmpdir/coredns/gslbctl"
-              chmod +x "$tmpdir/coredns/gslbctl"
-              
-              # Recreate archive
-              cd "$tmpdir"
-              tar czf "../$archive" coredns/
-              cd ..
-              
-              # Cleanup
-              rm -rf "$tmpdir"
-            fi
+            # Create temporary directory
+            tmpdir="gslbctl_tmp_$arch"
+            mkdir -p "$tmpdir/gslbctl"
+            
+            # Copy CLI binary
+            cp "../../coredns-gslb/gslbctl-linux-${arch}" "$tmpdir/gslbctl/gslbctl"
+            chmod +x "$tmpdir/gslbctl/gslbctl"
+            
+            # Create archive
+            cd "$tmpdir"
+            tar czf "../gslbctl_${{ github.ref_name }}_linux_${arch}.tgz" gslbctl/
+            cd ..
+            
+            # Cleanup
+            rm -rf "$tmpdir"
           done
 
       - name: Generate release binary sha256
