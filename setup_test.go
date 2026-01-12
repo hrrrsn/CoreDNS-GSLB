@@ -1,13 +1,15 @@
 package gslb
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/stretchr/testify/assert"
 )
 
-// Test setup function for the GSLB plugin.
 func TestSetupGSLB(t *testing.T) {
 	// Define test cases
 	tests := []struct {
@@ -175,4 +177,166 @@ func TestLoadRealConfig(t *testing.T) {
 	assert.True(t, ok, "Record webapp-lua.app-x.gslb.example.com. should exist in zone %s", zone)
 	_, ok = g.Records[zone]["webapp-grpc.app-x.gslb.example.com."]
 	assert.True(t, ok, "Record webapp-grpc.app-x.gslb.example.com. should exist in zone %s", zone)
+}
+
+func TestConfigWatcherDetectsChanges(t *testing.T) {
+	// Create a temporary directory for test files
+	tmpDir, err := os.MkdirTemp("", "gslb_watcher_test_")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a minimal test config file with YAML structure the loadConfigFile expects
+	testConfigPath := filepath.Join(tmpDir, "test_config.yml")
+	initialConfig := `defaults:
+  owner: admin
+  record_ttl: 30
+
+records:
+  app.test.example.com.:
+    mode: failover
+    backends:
+      - address: 192.168.1.1
+        priority: 1
+      - address: 192.168.1.2
+        priority: 2
+`
+	err = os.WriteFile(testConfigPath, []byte(initialConfig), 0644)
+	assert.NoError(t, err)
+
+	// Create GSLB instance and load initial config
+	g := &GSLB{
+		Zones:   make(map[string]string),
+		Records: make(map[string]map[string]*Record),
+	}
+	zone := "test.example.com."
+	g.Zones[zone] = testConfigPath
+
+	err = loadConfigFile(g, testConfigPath, zone)
+	assert.NoError(t, err)
+
+	// Verify initial state - first backend should have priority 1
+	recordKey := "app.test.example.com."
+	assert.Contains(t, g.Records[zone], recordKey, "Record should exist initially")
+	initialRecord := g.Records[zone][recordKey]
+	assert.Len(t, initialRecord.Backends, 2, "Should have 2 backends")
+	firstBackendInitial := initialRecord.Backends[0]
+	assert.Equal(t, "192.168.1.1", firstBackendInitial.GetAddress(), "First backend address")
+	assert.Equal(t, 1, firstBackendInitial.GetPriority(), "First backend initial priority should be 1")
+
+	// Start the watcher in a goroutine
+	go func() {
+		// This will run forever, but we don't care - just let it run
+		_ = startConfigWatcher(g, testConfigPath)
+	}()
+
+	// Give the watcher time to start and add the file to watch
+	time.Sleep(300 * time.Millisecond)
+
+	// Modify the config file - SWAP the priorities
+	modifiedConfig := `defaults:
+  owner: admin
+  record_ttl: 30
+
+records:
+  app.test.example.com.:
+    mode: failover
+    backends:
+      - address: 192.168.1.1
+        priority: 2
+      - address: 192.168.1.2
+        priority: 1
+`
+	err = os.WriteFile(testConfigPath, []byte(modifiedConfig), 0644)
+	assert.NoError(t, err)
+
+	// Wait for the debounce timer (500ms) + processing time
+	time.Sleep(1000 * time.Millisecond)
+
+	// Verify config was reloaded AND priorities changed
+	assert.NotNil(t, g.Records[zone], "Records should exist after reload")
+	assert.Contains(t, g.Records[zone], recordKey, "Expected record should exist after reload")
+
+	reloadedRecord := g.Records[zone][recordKey]
+	assert.Len(t, reloadedRecord.Backends, 2, "Should still have 2 backends after reload")
+
+	// Check that priorities were actually updated
+	firstBackendAfterReload := reloadedRecord.Backends[0]
+	assert.Equal(t, "192.168.1.1", firstBackendAfterReload.GetAddress(), "First backend address should stay the same")
+	assert.Equal(t, 2, firstBackendAfterReload.GetPriority(), "First backend priority should be CHANGED to 2")
+
+	secondBackendAfterReload := reloadedRecord.Backends[1]
+	assert.Equal(t, "192.168.1.2", secondBackendAfterReload.GetAddress(), "Second backend address")
+	assert.Equal(t, 1, secondBackendAfterReload.GetPriority(), "Second backend priority should be CHANGED to 1")
+}
+
+func TestCustomLocationMapWatcherDetectsChanges(t *testing.T) {
+	// Create a temporary directory and file
+	tmpDir := t.TempDir()
+	locationMapFile := filepath.Join(tmpDir, "location_map.yml")
+
+	// Write initial location map with correct YAML structure
+	// The format must match what loadCustomLocationsMap expects: subnets array
+	initialMap := `subnets:
+  - subnet: 192.168.1.0/24
+    location: datacenter1
+  - subnet: 10.0.0.0/8
+    location: datacenter2`
+
+	err := os.WriteFile(locationMapFile, []byte(initialMap), 0644)
+	assert.NoError(t, err)
+
+	// Create GSLB instance with proper initialization
+	g := &GSLB{
+		LocationMap: make(map[string]string),
+	}
+
+	// Load initial location map
+	err = g.loadCustomLocationsMap(locationMapFile)
+	assert.NoError(t, err, "Should load initial location map without error")
+	assert.Len(t, g.LocationMap, 2, "Should have 2 locations initially")
+	assert.Equal(t, "datacenter1", g.LocationMap["192.168.1.0/24"])
+	assert.Equal(t, "datacenter2", g.LocationMap["10.0.0.0/8"])
+
+	t.Logf("Initial LocationMap loaded with %d entries", len(g.LocationMap))
+
+	// Start watcher in goroutine
+	go watchCustomLocationMap(g, locationMapFile)
+
+	// Give watcher time to start
+	time.Sleep(200 * time.Millisecond)
+
+	// Modify location map using vi-style rename (create temp, then rename)
+	updatedMap := `subnets:
+  - subnet: 192.168.1.0/24
+    location: datacenter1
+  - subnet: 10.0.0.0/8
+    location: datacenter2
+  - subnet: 172.16.0.0/12
+    location: datacenter3`
+
+	tmpFile := locationMapFile + ".tmp"
+	err = os.WriteFile(tmpFile, []byte(updatedMap), 0644)
+	assert.NoError(t, err)
+
+	err = os.Rename(tmpFile, locationMapFile)
+	assert.NoError(t, err)
+
+	t.Logf("File modified via rename, waiting for watcher to detect...")
+
+	// Wait for watcher to detect change and reload (500ms debounce + processing)
+	time.Sleep(1200 * time.Millisecond)
+
+	// Verify the location map was reloaded
+	g.Mutex.RLock()
+	newLen := len(g.LocationMap)
+	hasDatacenter3 := g.LocationMap["172.16.0.0/12"]
+	g.Mutex.RUnlock()
+
+	t.Logf("After reload: LocationMap has %d entries", newLen)
+
+	// The new map should have 3 entries including the new datacenter3
+	assert.Len(t, g.LocationMap, 3, "Should have 3 locations after reload")
+	assert.Equal(t, "datacenter3", hasDatacenter3, "Should have datacenter3 entry")
+	assert.Equal(t, "datacenter1", g.LocationMap["192.168.1.0/24"], "Should still have datacenter1")
+	assert.Equal(t, "datacenter2", g.LocationMap["10.0.0.0/8"], "Should still have datacenter2")
 }

@@ -10,6 +10,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const testFqdn = "test.example.com."
+
 func TestRecord_UnmarshalYAML(t *testing.T) {
 	yamlData := `
 mode: "failover"
@@ -83,7 +85,7 @@ func TestRecord_ScrapeBackends_Slowdown(t *testing.T) {
 		HealthcheckIdleMultiplier: multiplier,
 	}
 	rec := &Record{
-		Fqdn:           "test.example.com.",
+		Fqdn:           testFqdn,
 		ScrapeInterval: "100ms",
 	}
 
@@ -111,7 +113,7 @@ type callCounter struct {
 func (b *callCounter) runHealthChecks(retries int, timeout time.Duration) {
 	atomic.AddInt32(&b.calls, 1)
 }
-func (b *callCounter) GetFqdn() string                           { return "test.example.com." }
+func (b *callCounter) GetFqdn() string                           { return testFqdn }
 func (b *callCounter) SetFqdn(fqdn string)                       {}
 func (b *callCounter) GetDescription() string                    { return "" }
 func (b *callCounter) GetAddress() string                        { return "127.0.0.1" }
