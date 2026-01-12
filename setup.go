@@ -67,7 +67,12 @@ func setup(c *caddy.Controller) error {
 					zoneFiles[zoneNorm] = file
 
 					g.Zones[zoneNorm] = file
-					go startConfigWatcher(g, file)
+					go func(filePath string) {
+						if err := startConfigWatcher(g, filePath); err != nil {
+							log.Errorf("Config watcher failed for %s: %v", filePath, err)
+						}
+						log.Errorf("Config watcher stopped unexpectedly for %s", filePath)
+					}(file)
 				case "use_edns_csubnet":
 					if c.NextArg() {
 						return c.ArgErr()
