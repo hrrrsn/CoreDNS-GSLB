@@ -1,5 +1,7 @@
 ## CoreDNS-GSLB: Configuration 
 
+CoreDNS-GSLB automatically watches configuration files and reloads them at runtime when changes are detected. This allows most configuration updates to be applied without restarting CoreDNS,
+
 ### Syntax
 
 ~~~
