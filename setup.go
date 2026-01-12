@@ -245,6 +245,11 @@ func setup(c *caddy.Controller) error {
 // StartConfigWatcher starts watching the configuration file for changes
 func startConfigWatcher(g *GSLB, filePath string) error {
 	log.Debugf("Starting config watcher for %s", filePath)
+
+	// Get the directory to watch instead of the file directly
+	dir := filepath.Dir(filePath)
+	filename := filepath.Base(filePath)
+
 	// Create a new file system watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -252,9 +257,9 @@ func startConfigWatcher(g *GSLB, filePath string) error {
 	}
 	defer watcher.Close()
 
-	// Add the config file to the watcher
-	if err := watcher.Add(filePath); err != nil {
-		return fmt.Errorf("failed to add file to watcher: %w", err)
+	// Watch the directory instead of the file
+	if err := watcher.Add(dir); err != nil {
+		return fmt.Errorf("failed to add directory to watcher: %w", err)
 	}
 
 	// Channel for delayed reloads
@@ -264,7 +269,13 @@ func startConfigWatcher(g *GSLB, filePath string) error {
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Write == fsnotify.Write {
+			// Only process events for our target file
+			if filepath.Base(event.Name) != filename {
+				continue
+			}
+
+			// Handle write, create, and rename events
+			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0 {
 				// If a timer already exists, cancel it before setting a new one
 				if reloadTimer != nil {
 					reloadTimer.Stop()
