@@ -1,5 +1,4 @@
 //go:build icmp_test
-// +build icmp_test
 
 package gslb
 
