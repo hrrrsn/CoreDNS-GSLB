@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Test setup function for the GSLB plugin.
 func TestSetupGSLB(t *testing.T) {
 	// Define test cases
 	tests := []struct {
@@ -268,4 +267,76 @@ records:
 	secondBackendAfterReload := reloadedRecord.Backends[1]
 	assert.Equal(t, "192.168.1.2", secondBackendAfterReload.GetAddress(), "Second backend address")
 	assert.Equal(t, 1, secondBackendAfterReload.GetPriority(), "Second backend priority should be CHANGED to 1")
+}
+
+func TestCustomLocationMapWatcherDetectsChanges(t *testing.T) {
+	// Create a temporary directory and file
+	tmpDir := t.TempDir()
+	locationMapFile := filepath.Join(tmpDir, "location_map.yml")
+
+	// Write initial location map with correct YAML structure
+	// The format must match what loadCustomLocationsMap expects: subnets array
+	initialMap := `subnets:
+  - subnet: 192.168.1.0/24
+    location: datacenter1
+  - subnet: 10.0.0.0/8
+    location: datacenter2`
+
+	err := os.WriteFile(locationMapFile, []byte(initialMap), 0644)
+	assert.NoError(t, err)
+
+	// Create GSLB instance with proper initialization
+	g := &GSLB{
+		LocationMap: make(map[string]string),
+	}
+
+	// Load initial location map
+	err = g.loadCustomLocationsMap(locationMapFile)
+	assert.NoError(t, err, "Should load initial location map without error")
+	assert.Len(t, g.LocationMap, 2, "Should have 2 locations initially")
+	assert.Equal(t, "datacenter1", g.LocationMap["192.168.1.0/24"])
+	assert.Equal(t, "datacenter2", g.LocationMap["10.0.0.0/8"])
+
+	t.Logf("Initial LocationMap loaded with %d entries", len(g.LocationMap))
+
+	// Start watcher in goroutine
+	go watchCustomLocationMap(g, locationMapFile)
+
+	// Give watcher time to start
+	time.Sleep(200 * time.Millisecond)
+
+	// Modify location map using vi-style rename (create temp, then rename)
+	updatedMap := `subnets:
+  - subnet: 192.168.1.0/24
+    location: datacenter1
+  - subnet: 10.0.0.0/8
+    location: datacenter2
+  - subnet: 172.16.0.0/12
+    location: datacenter3`
+
+	tmpFile := locationMapFile + ".tmp"
+	err = os.WriteFile(tmpFile, []byte(updatedMap), 0644)
+	assert.NoError(t, err)
+
+	err = os.Rename(tmpFile, locationMapFile)
+	assert.NoError(t, err)
+
+	t.Logf("File modified via rename, waiting for watcher to detect...")
+
+	// Wait for watcher to detect change and reload (500ms debounce + processing)
+	time.Sleep(1200 * time.Millisecond)
+
+	// Verify the location map was reloaded
+	g.Mutex.RLock()
+	newLen := len(g.LocationMap)
+	hasDatacenter3 := g.LocationMap["172.16.0.0/12"]
+	g.Mutex.RUnlock()
+
+	t.Logf("After reload: LocationMap has %d entries", newLen)
+
+	// The new map should have 3 entries including the new datacenter3
+	assert.Len(t, g.LocationMap, 3, "Should have 3 locations after reload")
+	assert.Equal(t, "datacenter3", hasDatacenter3, "Should have datacenter3 entry")
+	assert.Equal(t, "datacenter1", g.LocationMap["192.168.1.0/24"], "Should still have datacenter1")
+	assert.Equal(t, "datacenter2", g.LocationMap["10.0.0.0/8"], "Should still have datacenter2")
 }

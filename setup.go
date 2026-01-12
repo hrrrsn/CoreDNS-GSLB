@@ -332,6 +332,12 @@ func reloadConfig(g *GSLB, filePath string, zone string) error {
 
 // Add a dedicated watcher for the custom location map
 func watchCustomLocationMap(g *GSLB, locationMapPath string) {
+	log.Debugf("Starting watcher for custom location map: %s", locationMapPath)
+
+	// Get the directory to watch instead of the file directly
+	dir := filepath.Dir(locationMapPath)
+	filename := filepath.Base(locationMapPath)
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Errorf("failed to create watcher for custom location map: %v", err)
@@ -339,8 +345,9 @@ func watchCustomLocationMap(g *GSLB, locationMapPath string) {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(locationMapPath); err != nil {
-		log.Errorf("failed to add custom location map to watcher: %v", err)
+	// Watch the directory instead of the file
+	if err := watcher.Add(dir); err != nil {
+		log.Errorf("failed to add directory to watcher for custom location map: %v", err)
 		return
 	}
 
@@ -349,12 +356,18 @@ func watchCustomLocationMap(g *GSLB, locationMapPath string) {
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Write == fsnotify.Write {
+			// Only process events for our target file
+			if filepath.Base(event.Name) != filename {
+				continue
+			}
+
+			// Handle write, create, and rename events
+			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0 {
 				if reloadTimer != nil {
 					reloadTimer.Stop()
 				}
 				reloadTimer = time.AfterFunc(500*time.Millisecond, func() {
-					log.Debugf("custom location map file modified: %s", locationMapPath)
+					log.Infof("Custom location map file modified: %s", locationMapPath)
 					if err := g.loadCustomLocationsMap(locationMapPath); err != nil {
 						log.Errorf("failed to reload custom location map: %v", err)
 					} else {
@@ -370,7 +383,7 @@ func watchCustomLocationMap(g *GSLB, locationMapPath string) {
 	}
 }
 
-// Ajoute une fonction utilitaire pour retrouver la zone à partir du fichier
+// Add helper to find zone by file path
 func findZoneByFile(g *GSLB, filePath string) string {
 	for zone, file := range g.Zones {
 		if file == filePath {
