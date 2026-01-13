@@ -140,7 +140,7 @@ func (b *Backend) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (b *Backend) removeBackend() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	log.Debugf("[%s] backend %s successfully removed", b.Fqdn, b.Address)
+	log.Infof("[%s] backend %s successfully removed", b.Fqdn, b.Address)
 }
 
 // updateBackend updates the settings of an existing backend
@@ -149,18 +149,18 @@ func (b *Backend) updateBackend(newBackend BackendInterface) {
 	defer b.mutex.Unlock()
 
 	if b.Priority != newBackend.GetPriority() {
-		log.Debugf("[%s] backend %s updated, priority changed from %d to %d", b.Fqdn, b.Address, b.Priority, newBackend.GetPriority())
+		log.Infof("[%s] backend %s updated, priority changed from %d to %d", b.Fqdn, b.Address, b.Priority, newBackend.GetPriority())
 		b.Priority = newBackend.GetPriority()
 	}
 
 	if b.Enable != newBackend.IsEnabled() {
-		log.Debugf("[%s] backend %s updated, enable changed from %v to %v", b.Fqdn, b.Address, b.Enable, newBackend.IsEnabled())
+		log.Infof("[%s] backend %s updated, enable changed from %v to %v", b.Fqdn, b.Address, b.Enable, newBackend.IsEnabled())
 		b.Enable = newBackend.IsEnabled()
 	}
 
 	// Check if health checks have changed
 	if !healthChecksEqual(b.HealthChecks, newBackend.GetHealthChecks()) {
-		log.Debugf("[%s] backend %s health checks have changed.", b.Fqdn, b.Address)
+		log.Infof("[%s] backend %s health checks have changed.", b.Fqdn, b.Address)
 		b.HealthChecks = newBackend.GetHealthChecks()
 	}
 }
