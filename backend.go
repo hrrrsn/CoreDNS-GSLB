@@ -227,10 +227,11 @@ func (b *Backend) runHealthChecks(maxRetries int, scrapeTimeout time.Duration) {
 
 	// Log backend health changes with higher log level
 	if b.Alive != oldAlive {
-		log.Infof("[%s] backend status [address=%s]: healthchecks=%s alive=%v", b.Fqdn, b.Address, healthChecksList, b.Alive)
-	} else {
-		log.Debugf("[%s] backend status [address=%s]: healthchecks=%s alive=%v", b.Fqdn, b.Address, healthChecksList, b.Alive)
+		log.Infof("[%s] backend status change [address=%s]: alive changed from %v to %v", b.Fqdn, b.Address, oldAlive, b.Alive)
 	}
+
+	// Keep old log format for log parsing
+	log.Debugf("[%s] backend status [address=%s]: healthchecks=%s alive=%v", b.Fqdn, b.Address, healthChecksList, b.Alive)
 }
 
 func (b *Backend) IsHealthy() bool {
