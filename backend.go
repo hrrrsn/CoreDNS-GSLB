@@ -210,6 +210,9 @@ func (b *Backend) runHealthChecks(maxRetries int, scrapeTimeout time.Duration) {
 	// Wait for all health check goroutines to complete before returning the results.
 	wg.Wait()
 
+	// Store old alive state for comparision
+	oldAlive := b.Alive
+
 	// Update the backend's Alive status
 	alive := true
 	for _, result := range results {
@@ -222,7 +225,12 @@ func (b *Backend) runHealthChecks(maxRetries int, scrapeTimeout time.Duration) {
 	b.Alive = alive
 	b.mutex.Unlock()
 
-	log.Debugf("[%s] backend status [address=%s]: healthchecks=%s alive=%v", b.Fqdn, b.Address, healthChecksList, b.Alive)
+	// Log backend health changes with higher log level
+	if b.Alive != oldAlive {
+		log.Infof("[%s] backend status [address=%s]: healthchecks=%s alive=%v", b.Fqdn, b.Address, healthChecksList, b.Alive)
+	} else {
+		log.Debugf("[%s] backend status [address=%s]: healthchecks=%s alive=%v", b.Fqdn, b.Address, healthChecksList, b.Alive)
+	}
 }
 
 func (b *Backend) IsHealthy() bool {
