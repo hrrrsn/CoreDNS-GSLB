@@ -208,6 +208,9 @@ func setup(c *caddy.Controller) error {
 						return fmt.Errorf("failed to parse global healthcheck_profiles: %w", err)
 					}
 					GlobalHealthcheckProfiles = tmp.HealthcheckProfiles
+
+					// Start watcher for global healthcheck profiles
+					go watchHealthcheckProfiles(g, globalProfilesPath)
 				case "disable_txt":
 					if c.NextArg() {
 						return c.ArgErr()
@@ -381,6 +384,124 @@ func watchCustomLocationMap(g *GSLB, locationMapPath string) {
 			}
 		}
 	}
+}
+
+// watchHealthcheckProfiles watches the global healthcheck profiles file for changes
+func watchHealthcheckProfiles(g *GSLB, profilesPath string) {
+	log.Debugf("Starting watcher for healthcheck profiles: %s", profilesPath)
+
+	// Get the directory to watch instead of the file directly
+	dir := filepath.Dir(profilesPath)
+	filename := filepath.Base(profilesPath)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Errorf("failed to create watcher for healthcheck profiles: %v", err)
+		return
+	}
+	defer watcher.Close()
+
+	// Watch the directory instead of the file
+	if err := watcher.Add(dir); err != nil {
+		log.Errorf("failed to add directory to watcher for healthcheck profiles: %v", err)
+		return
+	}
+
+	var reloadTimer *time.Timer
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			// Only process events for our target file
+			if filepath.Base(event.Name) != filename {
+				continue
+			}
+
+			// Handle write, create, and rename events
+			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0 {
+				if reloadTimer != nil {
+					reloadTimer.Stop()
+				}
+				reloadTimer = time.AfterFunc(500*time.Millisecond, func() {
+					log.Infof("Healthcheck profiles file modified: %s", profilesPath)
+					if err := reloadHealthcheckProfilesAndZones(g, profilesPath); err != nil {
+						log.Errorf("failed to reload healthcheck profiles: %v", err)
+					} else {
+						log.Info("Healthcheck profiles and zones reloaded successfully.")
+					}
+				})
+			}
+		case err := <-watcher.Errors:
+			if err != nil {
+				log.Errorf("Error in healthcheck profiles watcher: %v", err)
+			}
+		}
+	}
+}
+
+// reloadHealthcheckProfiles reloads the global healthcheck profiles from file
+func reloadHealthcheckProfiles(profilesPath string) error {
+	log.Infof("Reloading healthcheck profiles from %s", profilesPath)
+
+	data, err := os.ReadFile(profilesPath)
+	if err != nil {
+		return fmt.Errorf("failed to read healthcheck profiles: %w", err)
+	}
+
+	var tmp struct {
+		HealthcheckProfiles map[string]*HealthCheck `yaml:"healthcheck_profiles"`
+	}
+
+	if err := yaml.Unmarshal(data, &tmp); err != nil {
+		return fmt.Errorf("failed to parse healthcheck profiles: %w", err)
+	}
+
+	// Update global healthcheck profiles atomically
+	GlobalHealthcheckProfiles = tmp.HealthcheckProfiles
+
+	log.Infof("Loaded %d healthcheck profiles", len(tmp.HealthcheckProfiles))
+
+	return nil
+}
+
+// reloadHealthcheckProfilesAndZones reloads profiles and triggers zone reloads
+func reloadHealthcheckProfilesAndZones(g *GSLB, profilesPath string) error {
+	// First reload the healthcheck profiles
+	if err := reloadHealthcheckProfiles(profilesPath); err != nil {
+		return err
+	}
+
+	// Then reload all zones to apply the new profiles to backends
+	log.Info("Reloading all zones to apply new healthcheck profiles...")
+
+	g.Mutex.RLock()
+	zones := make(map[string]string)
+	for zone, filePath := range g.Zones {
+		zones[zone] = filePath
+	}
+	g.Mutex.RUnlock()
+
+	// Reload each zone
+	successCount := 0
+	errorCount := 0
+	for zone, filePath := range zones {
+		log.Debugf("Reloading zone %s from %s", zone, filePath)
+		if err := reloadConfig(g, filePath, zone); err != nil {
+			log.Errorf("Failed to reload zone %s: %v", zone, err)
+			errorCount++
+		} else {
+			log.Debugf("Successfully reloaded zone %s", zone)
+			successCount++
+		}
+	}
+
+	log.Infof("Zone reload complete: %d succeeded, %d failed", successCount, errorCount)
+
+	if errorCount > 0 {
+		return fmt.Errorf("failed to reload %d zone(s)", errorCount)
+	}
+
+	return nil
 }
 
 // Add helper to find zone by file path
