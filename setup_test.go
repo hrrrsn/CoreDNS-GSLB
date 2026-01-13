@@ -340,3 +340,111 @@ func TestCustomLocationMapWatcherDetectsChanges(t *testing.T) {
 	assert.Equal(t, "datacenter1", g.LocationMap["192.168.1.0/24"], "Should still have datacenter1")
 	assert.Equal(t, "datacenter2", g.LocationMap["10.0.0.0/8"], "Should still have datacenter2")
 }
+
+func TestHealthcheckProfilesWatcherDetectsChanges(t *testing.T) {
+	// Save original global profiles and restore at the end
+	originalProfiles := GlobalHealthcheckProfiles
+	defer func() {
+		GlobalHealthcheckProfiles = originalProfiles
+	}()
+
+	// Reset global profiles for this test
+	GlobalHealthcheckProfiles = make(map[string]*HealthCheck)
+
+	// Create a temporary directory and file
+	tmpDir := t.TempDir()
+	profilesFile := filepath.Join(tmpDir, "healthcheck_profiles.yml")
+
+	// Write initial healthcheck profiles
+	initialProfiles := `healthcheck_profiles:
+  https_default:
+    type: http
+    params:
+      port: 443
+      tls: true
+  icmp_default:
+    type: icmp
+    params:
+      count: 3`
+
+	err := os.WriteFile(profilesFile, []byte(initialProfiles), 0644)
+	assert.NoError(t, err)
+
+	// Create GSLB instance (needed for watcher signature)
+	g := &GSLB{
+		Zones:   make(map[string]string),
+		Records: make(map[string]map[string]*Record),
+	}
+
+	// Load initial profiles
+	err = reloadHealthcheckProfiles(profilesFile)
+	assert.NoError(t, err, "Should load initial profiles without error")
+	assert.NotNil(t, GlobalHealthcheckProfiles, "GlobalHealthcheckProfiles should not be nil")
+	assert.Len(t, GlobalHealthcheckProfiles, 2, "Should have 2 profiles initially")
+
+	// Verify initial profiles exist and have correct types
+	httpsProfile, hasHttps := GlobalHealthcheckProfiles["https_default"]
+	icmpProfile, hasIcmp := GlobalHealthcheckProfiles["icmp_default"]
+	assert.True(t, hasHttps, "Should have https_default profile")
+	assert.True(t, hasIcmp, "Should have icmp_default profile")
+	assert.Equal(t, "http", httpsProfile.Type)
+	assert.Equal(t, "icmp", icmpProfile.Type)
+
+	t.Logf("Initial healthcheck profiles loaded: %d profiles", len(GlobalHealthcheckProfiles))
+
+	// Start watcher in goroutine
+	go watchHealthcheckProfiles(g, profilesFile)
+
+	// Give watcher time to start
+	time.Sleep(200 * time.Millisecond)
+
+	// Modify profiles using vi-style rename (create temp, then rename)
+	updatedProfiles := `healthcheck_profiles:
+  https_default:
+    type: http
+    params:
+      port: 443
+      tls: true
+  icmp_default:
+    type: icmp
+    params:
+      count: 3
+  grpc_default:
+    type: grpc
+    params:
+      port: 50051`
+
+	tmpFile := profilesFile + ".tmp"
+	err = os.WriteFile(tmpFile, []byte(updatedProfiles), 0644)
+	assert.NoError(t, err)
+
+	err = os.Rename(tmpFile, profilesFile)
+	assert.NoError(t, err)
+
+	t.Logf("Profiles file modified via rename, waiting for watcher to detect...")
+
+	// Wait for watcher to detect change and reload (500ms debounce + processing)
+	time.Sleep(1200 * time.Millisecond)
+
+	// Verify the profiles were reloaded
+	assert.NotNil(t, GlobalHealthcheckProfiles, "GlobalHealthcheckProfiles should not be nil after reload")
+	assert.Len(t, GlobalHealthcheckProfiles, 3, "Should have 3 profiles after reload")
+
+	// Verify all three profiles exist
+	_, hasHttpsAfter := GlobalHealthcheckProfiles["https_default"]
+	_, hasIcmpAfter := GlobalHealthcheckProfiles["icmp_default"]
+	grpcProfile, hasGrpc := GlobalHealthcheckProfiles["grpc_default"]
+
+	assert.True(t, hasHttpsAfter, "Should still have https_default")
+	assert.True(t, hasIcmpAfter, "Should still have icmp_default")
+	assert.True(t, hasGrpc, "Should have new grpc_default")
+
+	// Verify the new profile properties
+	if hasGrpc && grpcProfile != nil {
+		assert.NotNil(t, grpcProfile, "grpc_default profile should not be nil")
+		assert.Equal(t, "grpc", grpcProfile.Type, "grpc_default should have type 'grpc'")
+		assert.NotNil(t, grpcProfile.Params, "grpc_default should have params")
+	}
+
+	t.Logf("Test passed - healthcheck profiles reloaded successfully with %d profiles", len(GlobalHealthcheckProfiles))
+}
