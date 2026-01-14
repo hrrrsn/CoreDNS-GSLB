@@ -296,7 +296,7 @@ func startConfigWatcher(g *GSLB, filePath string) error {
 					if err := reloadConfig(g, filePath, zone); err != nil {
 						log.Errorf("failed to reload config: %v", err)
 					} else {
-						log.Debug("configuration reloaded successfully.")
+						log.Info("configuration reloaded successfully.")
 					}
 				})
 			}
@@ -374,7 +374,7 @@ func watchCustomLocationMap(g *GSLB, locationMapPath string) {
 					if err := g.loadCustomLocationsMap(locationMapPath); err != nil {
 						log.Errorf("failed to reload custom location map: %v", err)
 					} else {
-						log.Debug("custom location map reloaded successfully.")
+						log.Info("custom location map reloaded successfully.")
 					}
 				})
 			}
