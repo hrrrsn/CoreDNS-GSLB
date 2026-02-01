@@ -10,7 +10,7 @@ require (
 	github.com/creasty/defaults v1.8.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/melbahja/goph v1.4.0
-	github.com/miekg/dns v1.1.70
+	github.com/miekg/dns v1.1.72
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus-community/pro-bing v0.7.0
 	github.com/prometheus/client_golang v1.23.0
