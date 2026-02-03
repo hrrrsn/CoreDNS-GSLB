@@ -157,15 +157,38 @@ func TestBackend_LockUnlock(t *testing.T) {
 
 func TestBackend_UpdateBackend(t *testing.T) {
 	b := &Backend{
-		Address:  "1.2.3.4",
-		Priority: 10,
-		Enable:   true,
+		Address:     "1.2.3.4",
+		Priority:    10,
+		Weight:      5,
+		Enable:      true,
+		Description: "old description",
+		Tags:        []string{"tag1", "tag2"},
+		Timeout:     "5s",
+		Country:     "US",
+		City:        "New York",
+		ASN:         "64512",
+		Location:    "us-east",
+		HealthChecks: []GenericHealthCheck{
+			&MockHealthCheck{},
+		},
 	}
 
 	newBackend := &Backend{
-		Address:  "1.2.3.4", // Same address
-		Priority: 20,        // Different priority
-		Enable:   false,     // Different enable state
+		Address:     "1.2.3.4", // Same address
+		Priority:    20,        // Different priority
+		Weight:      10,        // Different weight
+		Enable:      false,     // Different enable state
+		Description: "new description",
+		Tags:        []string{"tag3", "tag4", "tag5"},
+		Timeout:     "10s",
+		Country:     "FR",
+		City:        "Paris",
+		ASN:         "64513",
+		Location:    "eu-west",
+		HealthChecks: []GenericHealthCheck{
+			&MockHealthCheck{},
+			&MockHealthCheck{},
+		},
 	}
 
 	// Test that updateBackend doesn't panic
@@ -173,9 +196,54 @@ func TestBackend_UpdateBackend(t *testing.T) {
 		b.updateBackend(newBackend)
 	})
 
-	// Verify the update worked
-	assert.Equal(t, 20, b.Priority)
-	assert.Equal(t, false, b.Enable)
+	// Verify all fields were updated
+	assert.Equal(t, 20, b.Priority, "Priority should be updated")
+	assert.Equal(t, 10, b.Weight, "Weight should be updated")
+	assert.Equal(t, false, b.Enable, "Enable should be updated")
+	assert.Equal(t, "new description", b.Description, "Description should be updated")
+	assert.Equal(t, []string{"tag3", "tag4", "tag5"}, b.Tags, "Tags should be updated")
+	assert.Equal(t, "10s", b.Timeout, "Timeout should be updated")
+	assert.Equal(t, "FR", b.Country, "Country should be updated")
+	assert.Equal(t, "Paris", b.City, "City should be updated")
+	assert.Equal(t, "64513", b.ASN, "ASN should be updated")
+	assert.Equal(t, "eu-west", b.Location, "Location should be updated")
+	assert.Len(t, b.HealthChecks, 2, "HealthChecks should be updated")
+}
+
+func TestBackend_UpdateBackend_NoChanges(t *testing.T) {
+	// Test that when fields are the same, no update occurs
+	b := &Backend{
+		Address:     "1.2.3.4",
+		Priority:    10,
+		Weight:      5,
+		Enable:      true,
+		Description: "same description",
+		Tags:        []string{"tag1"},
+		Timeout:     "5s",
+		Country:     "US",
+	}
+
+	newBackend := &Backend{
+		Address:     "1.2.3.4",
+		Priority:    10,
+		Weight:      5,
+		Enable:      true,
+		Description: "same description",
+		Tags:        []string{"tag1"},
+		Timeout:     "5s",
+		Country:     "US",
+	}
+
+	// Should not panic when fields are the same
+	assert.NotPanics(t, func() {
+		b.updateBackend(newBackend)
+	})
+
+	// Verify fields remain the same
+	assert.Equal(t, 10, b.Priority)
+	assert.Equal(t, 5, b.Weight)
+	assert.Equal(t, true, b.Enable)
+	assert.Equal(t, "same description", b.Description)
 }
 
 func TestBackend_RemoveBackend(t *testing.T) {

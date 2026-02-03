@@ -153,9 +153,50 @@ func (b *Backend) updateBackend(newBackend BackendInterface) {
 		b.Priority = newBackend.GetPriority()
 	}
 
+	if b.Weight != newBackend.GetWeight() {
+		log.Infof("[%s] backend %s updated, weight changed from %d to %d", b.Fqdn, b.Address, b.Weight, newBackend.GetWeight())
+		b.Weight = newBackend.GetWeight()
+	}
+
 	if b.Enable != newBackend.IsEnabled() {
 		log.Infof("[%s] backend %s updated, enable changed from %v to %v", b.Fqdn, b.Address, b.Enable, newBackend.IsEnabled())
 		b.Enable = newBackend.IsEnabled()
+	}
+
+	if b.Description != newBackend.GetDescription() {
+		log.Infof("[%s] backend %s updated, description changed", b.Fqdn, b.Address)
+		b.Description = newBackend.GetDescription()
+	}
+
+	if b.Timeout != newBackend.GetTimeout() {
+		log.Infof("[%s] backend %s updated, timeout changed from %s to %s", b.Fqdn, b.Address, b.Timeout, newBackend.GetTimeout())
+		b.Timeout = newBackend.GetTimeout()
+	}
+
+	if b.Country != newBackend.GetCountry() {
+		log.Infof("[%s] backend %s updated, country changed from %s to %s", b.Fqdn, b.Address, b.Country, newBackend.GetCountry())
+		b.Country = newBackend.GetCountry()
+	}
+
+	if b.City != newBackend.GetCity() {
+		log.Infof("[%s] backend %s updated, city changed from %s to %s", b.Fqdn, b.Address, b.City, newBackend.GetCity())
+		b.City = newBackend.GetCity()
+	}
+
+	if b.ASN != newBackend.GetASN() {
+		log.Infof("[%s] backend %s updated, asn changed from %s to %s", b.Fqdn, b.Address, b.ASN, newBackend.GetASN())
+		b.ASN = newBackend.GetASN()
+	}
+
+	if b.Location != newBackend.GetLocation() {
+		log.Infof("[%s] backend %s updated, location changed from %s to %s", b.Fqdn, b.Address, b.Location, newBackend.GetLocation())
+		b.Location = newBackend.GetLocation()
+	}
+
+	// Compare tags slice
+	if !tagsEqual(b.Tags, newBackend.GetTags()) {
+		log.Infof("[%s] backend %s updated, tags changed", b.Fqdn, b.Address)
+		b.Tags = newBackend.GetTags()
 	}
 
 	// Check if health checks have changed
@@ -239,6 +280,19 @@ func (b *Backend) IsHealthy() bool {
 	defer b.mutex.RUnlock()
 
 	return b.Alive && b.Enable
+}
+
+// tagsEqual compares two slices of strings (tags) for equality.
+func tagsEqual(t1, t2 []string) bool {
+	if len(t1) != len(t2) {
+		return false
+	}
+	for i, tag := range t1 {
+		if tag != t2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 type BackendInterface interface {
