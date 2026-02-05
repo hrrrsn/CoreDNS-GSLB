@@ -30,7 +30,7 @@ The GSLB plugin supports several backend selection modes, configurable per recor
 
 ### Random
 
-- **Description:** Returns a random healthy backend for each query.
+- **Description:** Returns all healthy backends in random order. 
 - **Use case:** Distributes load randomly, useful for stateless services.
 - **Example:**
   ```yaml
