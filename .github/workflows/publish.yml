@@ -1,4 +1,4 @@
-name: Docker Push
+name: Publish to GHCR
 
 on:
   release:
@@ -6,24 +6,25 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
-  dockerhub:
+  ghcr:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-    - name: Build the Docker image
-      run: |
-        docker build . --file ./Dockerfile -t coredns_gslb --build-arg GSLB_VERSION=${{ github.event.release.tag_name }}
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Tag image
-      run: |
-        docker tag coredns_gslb dmachard/coredns_gslb:${{ github.event.release.tag_name }}
-        docker tag coredns_gslb dmachard/coredns_gslb:latest
+      - name: Build the Docker image
+        run: |
+          docker build . --file ./Dockerfile \
+            -t ghcr.io/hrrrsn/coredns-gslb:${{ github.event.release.tag_name }} \
+            -t ghcr.io/hrrrsn/coredns-gslb:latest \
+            --build-arg GSLB_VERSION=${{ github.event.release.tag_name }}
 
-    - name: Upload to DockerHub
-      run: |
-        echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_LOGIN }}" --password-stdin
-        docker push dmachard/coredns_gslb:latest
-        docker push dmachard/coredns_gslb:${{ github.event.release.tag_name }}
+      - name: Push to GHCR
+        run: |
+          docker push ghcr.io/hrrrsn/coredns-gslb:${{ github.event.release.tag_name }}
+          docker push ghcr.io/hrrrsn/coredns-gslb:latest

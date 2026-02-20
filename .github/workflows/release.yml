@@ -39,10 +39,10 @@ jobs:
           set -x -e
           cd coredns
           # Add plugin to plugin.cfg with GitHub module path
-          sed -i '/file:file/i gslb:github.com/dmachard/coredns-gslb' plugin.cfg
+          sed -i '/file:file/i gslb:github.com/hrrrsn/coredns-gslb' plugin.cfg
           # Add replace directive to use local copy
-          go mod edit -replace github.com/dmachard/coredns-gslb=../coredns-gslb
-          go get github.com/dmachard/coredns-gslb
+          go mod edit -replace github.com/hrrrsn/coredns-gslb=../coredns-gslb
+          go get github.com/hrrrsn/coredns-gslb
           go generate
           make -f Makefile.release release -e LINUX_ARCH="amd64 arm64" VERSION=${{ github.ref_name }}
 
