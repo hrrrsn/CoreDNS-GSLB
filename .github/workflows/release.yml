@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 env:
   COREDNS_VERSION: "1.14.1"
@@ -21,14 +22,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      
+
       - name: Checkout coredns
         uses: actions/checkout@v5
         with:
           repository: coredns/coredns
           ref: v${{ env.COREDNS_VERSION }}
           path: coredns
-      
+
       - name: Checkout gslb plugin
         uses: actions/checkout@v5
         with:
@@ -50,10 +51,10 @@ jobs:
         run: |
           set -x -e
           cd coredns-gslb
-          
+
           # Build CLI for amd64
           GOOS=linux GOARCH=amd64 go build -o gslbctl-linux-amd64 ./cli
-          
+
           # Build CLI for arm64
           GOOS=linux GOARCH=arm64 go build -o gslbctl-linux-arm64 ./cli
 
@@ -61,22 +62,22 @@ jobs:
         run: |
           set -x -e
           cd coredns/release
-          
+
           # Create CLI packages for each architecture
           for arch in amd64 arm64; do
             # Create temporary directory
             tmpdir="gslbctl_tmp_$arch"
             mkdir -p "$tmpdir/gslbctl"
-            
+
             # Copy CLI binary
             cp "../../coredns-gslb/gslbctl-linux-${arch}" "$tmpdir/gslbctl/gslbctl"
             chmod +x "$tmpdir/gslbctl/gslbctl"
-            
+
             # Create archive
             cd "$tmpdir"
             tar czf "../gslbctl_${{ github.ref_name }}_linux_${arch}.tgz" gslbctl/
             cd ..
-            
+
             # Cleanup
             rm -rf "$tmpdir"
           done
@@ -84,10 +85,10 @@ jobs:
       - name: Generate release binary sha256
         run: |
           cd coredns/release
-          for asset in *.tgz; do 
+          for asset in *.tgz; do
             sha256sum "$asset" > "$asset.sha256"
           done
-      
+
       - name: Rename release archives
         run: |
           cd coredns/release
@@ -108,3 +109,24 @@ jobs:
           files: |
             coredns/release/*.tgz
             coredns/release/*.tgz.sha256
+
+  publish:
+    name: Publish to GHCR
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build the Docker image
+        run: |
+          docker build . --file ./Dockerfile \
+            -t ghcr.io/hrrrsn/coredns-gslb:${{ github.ref_name }} \
+            -t ghcr.io/hrrrsn/coredns-gslb:latest \
+            --build-arg GSLB_VERSION=${{ github.ref_name }}
+
+      - name: Push to GHCR
+        run: |
+          docker push ghcr.io/hrrrsn/coredns-gslb:${{ github.ref_name }}
+          docker push ghcr.io/hrrrsn/coredns-gslb:latest
