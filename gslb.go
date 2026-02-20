@@ -417,6 +417,10 @@ func (g *GSLB) pickResponse(domain string, recordType uint16, clientIP net.IP) (
 		return g.pickBackendWithGeoIP(record, recordType, clientIP)
 	case "weighted":
 		return g.pickBackendWithWeighted(record, recordType)
+	case "nearest", "closest":
+		return g.pickBackendWithNearest(record, recordType, clientIP)
+	case "fastest":
+		return g.pickBackendWithFastest(record, recordType)
 	default:
 		return nil, fmt.Errorf("unsupported mode: %s", record.Mode)
 	}

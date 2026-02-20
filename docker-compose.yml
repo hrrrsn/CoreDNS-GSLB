@@ -2,7 +2,7 @@
 services:
   coredns_gslb:
     container_name: coredns_gslb
-    image: dmachard/coredns_gslb:${COREDNS_GSLB_VERSION:-latest}
+    image: ghcr.io/hrrrsn/coredns-gslb:${COREDNS_GSLB_VERSION:-latest}
     ports:
       - "1053:53/udp"
       - "1053:53/tcp"

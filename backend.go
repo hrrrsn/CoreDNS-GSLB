@@ -25,7 +25,11 @@ type Backend struct {
 	City            string               // City name for GeoIP
 	ASN             string               // ASN for GeoIP
 	Location        string               // location
+	Latitude        float64              // backend latitude for nearest routing
+	Longitude       float64              // backend longitude for nearest routing
+	CoordinatesSet  bool                 // indicates if latitude/longitude were provided
 	LastHealthcheck time.Time            // Last time a healthcheck was launched
+	ResponseTime    time.Duration        // Wall-clock duration of last health check run (used by fastest mode)
 	mutex           sync.RWMutex
 }
 
@@ -96,6 +100,24 @@ func (b *Backend) GetLocation() string {
 	return b.Location
 }
 
+func (b *Backend) GetLatitude() float64 {
+	return b.Latitude
+}
+
+func (b *Backend) GetLongitude() float64 {
+	return b.Longitude
+}
+
+func (b *Backend) HasCoordinates() bool {
+	return b.CoordinatesSet
+}
+
+func (b *Backend) GetResponseTime() time.Duration {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return b.ResponseTime
+}
+
 func (b *Backend) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var raw struct {
 		Description  string        `yaml:"description" default:""`
@@ -110,6 +132,8 @@ func (b *Backend) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		City         string        `yaml:"city"`
 		ASN          string        `yaml:"asn"`
 		Location     string        `yaml:"location"`
+		Latitude     *float64      `yaml:"latitude"`
+		Longitude    *float64      `yaml:"longitude"`
 	}
 	defaults.Set(&raw)
 	if err := unmarshal(&raw); err != nil {
@@ -126,6 +150,16 @@ func (b *Backend) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	b.City = raw.City
 	b.ASN = raw.ASN
 	b.Location = raw.Location
+	if (raw.Latitude == nil) != (raw.Longitude == nil) {
+		return fmt.Errorf("backend %s: latitude and longitude must be set together", raw.Address)
+	}
+	if raw.Latitude != nil && raw.Longitude != nil {
+		b.Latitude = *raw.Latitude
+		b.Longitude = *raw.Longitude
+		b.CoordinatesSet = true
+	} else {
+		b.CoordinatesSet = false
+	}
 	for _, hc := range raw.HealthChecks {
 		specificHC, err := hc.ToSpecificHealthCheck()
 		if err != nil {
@@ -193,6 +227,13 @@ func (b *Backend) updateBackend(newBackend BackendInterface) {
 		b.Location = newBackend.GetLocation()
 	}
 
+	if b.CoordinatesSet != newBackend.HasCoordinates() || b.Latitude != newBackend.GetLatitude() || b.Longitude != newBackend.GetLongitude() {
+		log.Infof("[%s] backend %s updated, coordinates changed", b.Fqdn, b.Address)
+		b.CoordinatesSet = newBackend.HasCoordinates()
+		b.Latitude = newBackend.GetLatitude()
+		b.Longitude = newBackend.GetLongitude()
+	}
+
 	// Compare tags slice
 	if !tagsEqual(b.Tags, newBackend.GetTags()) {
 		log.Infof("[%s] backend %s updated, tags changed", b.Fqdn, b.Address)
@@ -207,8 +248,9 @@ func (b *Backend) updateBackend(newBackend BackendInterface) {
 }
 
 func (b *Backend) runHealthChecks(maxRetries int, scrapeTimeout time.Duration) {
+	start := time.Now()
 	b.mutex.Lock()
-	b.LastHealthcheck = time.Now()
+	b.LastHealthcheck = start
 	b.mutex.Unlock()
 	var wg sync.WaitGroup
 	results := make([]bool, len(b.HealthChecks))
@@ -251,6 +293,9 @@ func (b *Backend) runHealthChecks(maxRetries int, scrapeTimeout time.Duration) {
 	// Wait for all health check goroutines to complete before returning the results.
 	wg.Wait()
 
+	// Record wall-clock duration of this health check run for fastest-mode routing.
+	elapsed := time.Since(start)
+
 	// Store old alive state for comparision
 	oldAlive := b.Alive
 
@@ -264,6 +309,7 @@ func (b *Backend) runHealthChecks(maxRetries int, scrapeTimeout time.Duration) {
 	}
 	b.mutex.Lock()
 	b.Alive = alive
+	b.ResponseTime = elapsed
 	b.mutex.Unlock()
 
 	// Log backend health changes with higher log level
@@ -310,6 +356,10 @@ type BackendInterface interface {
 	GetCity() string
 	GetASN() string
 	GetLocation() string
+	GetLatitude() float64
+	GetLongitude() float64
+	HasCoordinates() bool
+	GetResponseTime() time.Duration
 	IsHealthy() bool
 	runHealthChecks(retries int, timeout time.Duration)
 	removeBackend()

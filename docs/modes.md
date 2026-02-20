@@ -113,6 +113,45 @@ The GSLB plugin supports several backend selection modes, configurable per recor
   }
   ```
 
+If no healthy backend matches the client's country or location, the plugin falls back to failover mode.
+
+### Nearest
+
+- **Description:** Selects the single closest backend based on the client latitude/longitude (from MaxMind GeoLite2-City) and backend `latitude`/`longitude`. `closest` is accepted as an alias for `nearest`.
+- **Use case:** Lowest-latency routing to the closest datacenter.
+- **Requirements:** Configure `geoip_maxmind city_db` and provide `latitude` and `longitude` for each backend.
+- **Example:**
+  ```yaml
+  mode: "nearest"
+  backends:
+    - address: "10.0.0.1"
+      latitude: 48.8566
+      longitude: 2.3522
+    - address: "10.0.0.2"
+      latitude: 52.5200
+      longitude: 13.4050
+  ```
+  And in your Corefile:
+  ```
+  gslb {
+    geoip_maxmind city_db coredns/GeoLite2-City.mmdb
+  }
+  ```
+
+### Fastest
+
+- **Description:** Selects the single healthy backend with the lowest recorded health check response time. Response time is measured as the wall-clock duration of each periodic health check run, updated every scrape interval.
+- **Use case:** Automatically route traffic to whichever backend is currently responding quickest, without requiring geographic data or manual weights.
+- **Cold start behaviour:** Backends that have not yet completed a health check (response time = 0) are deprioritised. If at least one backend has a recorded time, only measured backends are considered. If no backend has been measured yet, the first healthy backend found is returned.
+- **Example:**
+  ```yaml
+  mode: "fastest"
+  backends:
+    - address: "10.0.0.1"
+    - address: "10.0.0.2"
+    - address: "10.0.0.3"
+  ```
+
 ### Weighted
 
 - **Description:** Selects a healthy backend randomly, but proportionally to its `weight` value. A backend with a higher weight will be chosen more often.
@@ -131,6 +170,3 @@ The GSLB plugin supports several backend selection modes, configurable per recor
   - Only healthy and enabled backends are considered.
   - If a backend has no `weight` or a weight ≤ 0, it is treated as weight 1 by default.
   - The probability of selection is: `weight / sum(weights of all healthy backends)`.
-
-If no healthy backend matches the client's country or location, the plugin falls back to failover mode.
-

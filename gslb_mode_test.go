@@ -3,6 +3,7 @@ package gslb
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/oschwald/geoip2-golang"
@@ -428,6 +429,146 @@ func TestGSLB_PickBackendWithWeighted(t *testing.T) {
 		frac := float64(selections[addr]) / float64(n)
 		assert.InDelta(t, exp, frac, 0.05, "Backend %s: got %.2f, expected %.2f", addr, frac, exp)
 	}
+}
+
+func TestGSLB_PickBackendWithNearestCoordinates(t *testing.T) {
+	backendNear := &MockBackend{Backend: &Backend{Address: "192.168.1.10", Enable: true, Latitude: 48.8566, Longitude: 2.3522, CoordinatesSet: true}}
+	backendFar := &MockBackend{Backend: &Backend{Address: "192.168.1.20", Enable: true, Latitude: 52.5200, Longitude: 13.4050, CoordinatesSet: true}}
+	backendNear.On("IsHealthy").Return(true)
+	backendFar.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "nearest.example.com.",
+		Mode:     "nearest",
+		Backends: []BackendInterface{backendFar, backendNear},
+	}
+
+	g := &GSLB{}
+	ips, err := g.pickBackendWithNearestCoordinates(record, dns.TypeA, 48.8566, 2.3522)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"192.168.1.10"}, ips)
+}
+
+func TestGSLB_PickBackendWithNearestCoordinates_NoCandidates(t *testing.T) {
+	backendNoCoords := &MockBackend{Backend: &Backend{Address: "192.168.1.30", Enable: true}}
+	backendNoCoords.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "nearest.example.com.",
+		Mode:     "nearest",
+		Backends: []BackendInterface{backendNoCoords},
+	}
+
+	g := &GSLB{}
+	_, err := g.pickBackendWithNearestCoordinates(record, dns.TypeA, 48.8566, 2.3522)
+	assert.Error(t, err)
+}
+
+func TestGSLB_PickBackendWithFastest_SelectsSlowest(t *testing.T) {
+	backendFast := &MockBackend{Backend: &Backend{Address: "192.168.1.1", Enable: true, ResponseTime: 10 * time.Millisecond}}
+	backendSlow := &MockBackend{Backend: &Backend{Address: "192.168.1.2", Enable: true, ResponseTime: 100 * time.Millisecond}}
+	backendFast.On("IsHealthy").Return(true)
+	backendSlow.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "fastest.example.com.",
+		Mode:     "fastest",
+		Backends: []BackendInterface{backendSlow, backendFast},
+	}
+
+	g := &GSLB{}
+	ips, err := g.pickBackendWithFastest(record, dns.TypeA)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"192.168.1.1"}, ips)
+}
+
+func TestGSLB_PickBackendWithFastest_SkipsUnhealthy(t *testing.T) {
+	backendFastUnhealthy := &MockBackend{Backend: &Backend{Address: "192.168.1.1", Enable: true, ResponseTime: 5 * time.Millisecond}}
+	backendSlowHealthy := &MockBackend{Backend: &Backend{Address: "192.168.1.2", Enable: true, ResponseTime: 50 * time.Millisecond}}
+	backendFastUnhealthy.On("IsHealthy").Return(false)
+	backendSlowHealthy.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "fastest.example.com.",
+		Mode:     "fastest",
+		Backends: []BackendInterface{backendFastUnhealthy, backendSlowHealthy},
+	}
+
+	g := &GSLB{}
+	ips, err := g.pickBackendWithFastest(record, dns.TypeA)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"192.168.1.2"}, ips)
+}
+
+func TestGSLB_PickBackendWithFastest_NoHealthy(t *testing.T) {
+	backend := &MockBackend{Backend: &Backend{Address: "192.168.1.1", Enable: true, ResponseTime: 10 * time.Millisecond}}
+	backend.On("IsHealthy").Return(false)
+
+	record := &Record{
+		Fqdn:     "fastest.example.com.",
+		Mode:     "fastest",
+		Backends: []BackendInterface{backend},
+	}
+
+	g := &GSLB{}
+	_, err := g.pickBackendWithFastest(record, dns.TypeA)
+	assert.Error(t, err)
+}
+
+func TestGSLB_PickBackendWithFastest_UnmeasuredFallsBack(t *testing.T) {
+	// One backend has been measured, one has not. The measured one should win.
+	backendMeasured := &MockBackend{Backend: &Backend{Address: "192.168.1.1", Enable: true, ResponseTime: 20 * time.Millisecond}}
+	backendUnmeasured := &MockBackend{Backend: &Backend{Address: "192.168.1.2", Enable: true, ResponseTime: 0}}
+	backendMeasured.On("IsHealthy").Return(true)
+	backendUnmeasured.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "fastest.example.com.",
+		Mode:     "fastest",
+		Backends: []BackendInterface{backendUnmeasured, backendMeasured},
+	}
+
+	g := &GSLB{}
+	ips, err := g.pickBackendWithFastest(record, dns.TypeA)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"192.168.1.1"}, ips)
+}
+
+func TestGSLB_PickBackendWithFastest_AllUnmeasured(t *testing.T) {
+	// No backends have been measured yet — should still return one (the first healthy one found).
+	backend1 := &MockBackend{Backend: &Backend{Address: "192.168.1.1", Enable: true, Priority: 1, ResponseTime: 0}}
+	backend2 := &MockBackend{Backend: &Backend{Address: "192.168.1.2", Enable: true, Priority: 2, ResponseTime: 0}}
+	backend1.On("IsHealthy").Return(true)
+	backend2.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "fastest.example.com.",
+		Mode:     "fastest",
+		Backends: []BackendInterface{backend1, backend2},
+	}
+
+	g := &GSLB{}
+	ips, err := g.pickBackendWithFastest(record, dns.TypeA)
+	assert.NoError(t, err)
+	assert.Len(t, ips, 1)
+}
+
+func TestGSLB_PickBackendWithFastest_IPv6(t *testing.T) {
+	backendFast := &MockBackend{Backend: &Backend{Address: "2001:db8::1", Enable: true, ResponseTime: 15 * time.Millisecond}}
+	backendSlow := &MockBackend{Backend: &Backend{Address: "2001:db8::2", Enable: true, ResponseTime: 80 * time.Millisecond}}
+	backendFast.On("IsHealthy").Return(true)
+	backendSlow.On("IsHealthy").Return(true)
+
+	record := &Record{
+		Fqdn:     "fastest.example.com.",
+		Mode:     "fastest",
+		Backends: []BackendInterface{backendSlow, backendFast},
+	}
+
+	g := &GSLB{}
+	ips, err := g.pickBackendWithFastest(record, dns.TypeAAAA)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"2001:db8::1"}, ips)
 }
 
 // TestResponseWriter is a mock dns.ResponseWriter for testing

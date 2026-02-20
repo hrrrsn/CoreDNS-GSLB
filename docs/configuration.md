@@ -192,6 +192,10 @@ gslb {
 }
 ```
 
+#### Nearest Mode Coordinates
+
+For `mode: nearest`, each backend must define `latitude` and `longitude` (decimal degrees). Both fields must be set together; backends missing coordinates are ignored for nearest selection (with failover fallback).
+
 #### Custom Location Mapping
 
 Create `location_map.yml`:
@@ -203,7 +207,7 @@ subnets:
     location: ["us-east-1"]
 ```
 
-Example backend with all GeoIP location fields
+Example backend with all GeoIP location fields (and optional nearest coordinates)
 
 ~~~yaml
 - address: "172.16.0.12"
@@ -211,6 +215,8 @@ Example backend with all GeoIP location fields
   city: "Paris"
   asn: "12345"
   location: "eu-west-1"
+  latitude: 48.8566
+  longitude: 2.3522
   enable: true
   priority: 1
   healthchecks:
@@ -280,7 +286,5 @@ records:
       - address: 10.0.0.1
         healthchecks: [ https_default ]  # Uses the local version
 ```
-
-
 
 

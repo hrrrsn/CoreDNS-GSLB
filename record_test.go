@@ -123,6 +123,9 @@ func (b *callCounter) GetHealthChecks() []GenericHealthCheck     { return nil }
 func (b *callCounter) GetTimeout() string                        { return "" }
 func (b *callCounter) GetLocation() string                       { return "" }
 func (b *callCounter) GetCountry() string                        { return "" }
+func (b *callCounter) GetLatitude() float64                      { return 0 }
+func (b *callCounter) GetLongitude() float64                     { return 0 }
+func (b *callCounter) HasCoordinates() bool                      { return false }
 func (b *callCounter) IsHealthy() bool                           { return true }
 func (b *callCounter) removeBackend()                            {}
 func (b *callCounter) updateBackend(newBackend BackendInterface) {}

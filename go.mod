@@ -1,4 +1,4 @@
-module github.com/dmachard/coredns-gslb
+module github.com/hrrrsn/coredns-gslb
 
 go 1.24.0
 

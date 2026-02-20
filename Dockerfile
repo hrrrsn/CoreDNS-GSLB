@@ -12,11 +12,11 @@ ARG GSLB_VERSION=dev
 RUN git clone https://github.com/coredns/coredns.git /coredns && \
     cd /coredns && \
     git checkout $COREDNS_VERSION && \
-    sed -i '/file:file/i gslb:github.com/dmachard/coredns-gslb' plugin.cfg && \
-    go mod edit -replace github.com/dmachard/coredns-gslb=/go/src/gslb && \
-    go get github.com/dmachard/coredns-gslb && \
+    sed -i '/file:file/i gslb:github.com/hrrrsn/coredns-gslb' plugin.cfg && \
+    go mod edit -replace github.com/hrrrsn/coredns-gslb=/go/src/gslb && \
+    go get github.com/hrrrsn/coredns-gslb && \
     go generate && \
-    CGO_ENABLED=0 go build -ldflags "-X github.com/dmachard/coredns-gslb.Version=$GSLB_VERSION" -o /coredns/coredns .
+    CGO_ENABLED=0 go build -ldflags "-X github.com/hrrrsn/coredns-gslb.Version=$GSLB_VERSION" -o /coredns/coredns .
 
 # Build the CLI gslbctl
 RUN cd /go/src/gslb && go build -o /gslbctl ./cli

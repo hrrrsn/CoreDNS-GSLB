@@ -18,6 +18,8 @@ country: "FR"
 city: "Paris"
 asn: "64500"
 location: "edge-eu"
+latitude: 48.8566
+longitude: 2.3522
 enable: true
 timeout: "10s"
 healthchecks:
@@ -38,6 +40,9 @@ healthchecks:
 	assert.Equal(t, "Paris", backend.City)
 	assert.Equal(t, "64500", backend.ASN)
 	assert.Equal(t, "edge-eu", backend.Location)
+	assert.Equal(t, 48.8566, backend.Latitude)
+	assert.Equal(t, 2.3522, backend.Longitude)
+	assert.True(t, backend.CoordinatesSet)
 	assert.Len(t, backend.HealthChecks, 1)
 	assert.IsType(t, &HTTPHealthCheck{}, backend.HealthChecks[0])
 }
@@ -69,6 +74,9 @@ func TestBackend_Getters(t *testing.T) {
 		Timeout:      "5s",
 		Country:      "FR",
 		Location:     "eu-west-1",
+		Latitude:     48.8566,
+		Longitude:    2.3522,
+		CoordinatesSet: true,
 	}
 
 	assert.Equal(t, "test.example.com.", b.GetFqdn())
@@ -80,8 +88,9 @@ func TestBackend_Getters(t *testing.T) {
 	assert.Equal(t, "5s", b.GetTimeout())
 	assert.Equal(t, "FR", b.GetCountry())
 	assert.Equal(t, "eu-west-1", b.GetLocation())
-	assert.Equal(t, "FR", b.GetCountry())
-	assert.Equal(t, "eu-west-1", b.GetLocation())
+	assert.Equal(t, 48.8566, b.GetLatitude())
+	assert.Equal(t, 2.3522, b.GetLongitude())
+	assert.True(t, b.HasCoordinates())
 }
 
 func TestBackend_IsHealthy(t *testing.T) {
@@ -168,6 +177,9 @@ func TestBackend_UpdateBackend(t *testing.T) {
 		City:        "New York",
 		ASN:         "64512",
 		Location:    "us-east",
+		Latitude:    40.7128,
+		Longitude:   -74.0060,
+		CoordinatesSet: true,
 		HealthChecks: []GenericHealthCheck{
 			&MockHealthCheck{},
 		},
@@ -185,6 +197,9 @@ func TestBackend_UpdateBackend(t *testing.T) {
 		City:        "Paris",
 		ASN:         "64513",
 		Location:    "eu-west",
+		Latitude:    48.8566,
+		Longitude:   2.3522,
+		CoordinatesSet: true,
 		HealthChecks: []GenericHealthCheck{
 			&MockHealthCheck{},
 			&MockHealthCheck{},
@@ -207,6 +222,9 @@ func TestBackend_UpdateBackend(t *testing.T) {
 	assert.Equal(t, "Paris", b.City, "City should be updated")
 	assert.Equal(t, "64513", b.ASN, "ASN should be updated")
 	assert.Equal(t, "eu-west", b.Location, "Location should be updated")
+	assert.Equal(t, 48.8566, b.Latitude, "Latitude should be updated")
+	assert.Equal(t, 2.3522, b.Longitude, "Longitude should be updated")
+	assert.True(t, b.CoordinatesSet, "CoordinatesSet should be updated")
 	assert.Len(t, b.HealthChecks, 2, "HealthChecks should be updated")
 }
 
@@ -221,6 +239,9 @@ func TestBackend_UpdateBackend_NoChanges(t *testing.T) {
 		Tags:        []string{"tag1"},
 		Timeout:     "5s",
 		Country:     "US",
+		Latitude:    40.7128,
+		Longitude:   -74.0060,
+		CoordinatesSet: true,
 	}
 
 	newBackend := &Backend{
@@ -232,6 +253,9 @@ func TestBackend_UpdateBackend_NoChanges(t *testing.T) {
 		Tags:        []string{"tag1"},
 		Timeout:     "5s",
 		Country:     "US",
+		Latitude:    40.7128,
+		Longitude:   -74.0060,
+		CoordinatesSet: true,
 	}
 
 	// Should not panic when fields are the same
