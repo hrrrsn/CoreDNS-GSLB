@@ -65,17 +65,17 @@ func TestBackend_RunHealthChecks(t *testing.T) {
 
 func TestBackend_Getters(t *testing.T) {
 	b := &Backend{
-		Fqdn:         "test.example.com.",
-		Description:  "desc",
-		Address:      "1.2.3.4",
-		Priority:     10,
-		Enable:       true,
-		HealthChecks: []GenericHealthCheck{},
-		Timeout:      "5s",
-		Country:      "FR",
-		Location:     "eu-west-1",
-		Latitude:     48.8566,
-		Longitude:    2.3522,
+		Fqdn:           "test.example.com.",
+		Description:    "desc",
+		Address:        "1.2.3.4",
+		Priority:       10,
+		Enable:         true,
+		HealthChecks:   []GenericHealthCheck{},
+		Timeout:        "5s",
+		Country:        "FR",
+		Location:       "eu-west-1",
+		Latitude:       48.8566,
+		Longitude:      2.3522,
 		CoordinatesSet: true,
 	}
 
@@ -166,19 +166,19 @@ func TestBackend_LockUnlock(t *testing.T) {
 
 func TestBackend_UpdateBackend(t *testing.T) {
 	b := &Backend{
-		Address:     "1.2.3.4",
-		Priority:    10,
-		Weight:      5,
-		Enable:      true,
-		Description: "old description",
-		Tags:        []string{"tag1", "tag2"},
-		Timeout:     "5s",
-		Country:     "US",
-		City:        "New York",
-		ASN:         "64512",
-		Location:    "us-east",
-		Latitude:    40.7128,
-		Longitude:   -74.0060,
+		Address:        "1.2.3.4",
+		Priority:       10,
+		Weight:         5,
+		Enable:         true,
+		Description:    "old description",
+		Tags:           []string{"tag1", "tag2"},
+		Timeout:        "5s",
+		Country:        "US",
+		City:           "New York",
+		ASN:            "64512",
+		Location:       "us-east",
+		Latitude:       40.7128,
+		Longitude:      -74.0060,
 		CoordinatesSet: true,
 		HealthChecks: []GenericHealthCheck{
 			&MockHealthCheck{},
@@ -186,19 +186,19 @@ func TestBackend_UpdateBackend(t *testing.T) {
 	}
 
 	newBackend := &Backend{
-		Address:     "1.2.3.4", // Same address
-		Priority:    20,        // Different priority
-		Weight:      10,        // Different weight
-		Enable:      false,     // Different enable state
-		Description: "new description",
-		Tags:        []string{"tag3", "tag4", "tag5"},
-		Timeout:     "10s",
-		Country:     "FR",
-		City:        "Paris",
-		ASN:         "64513",
-		Location:    "eu-west",
-		Latitude:    48.8566,
-		Longitude:   2.3522,
+		Address:        "1.2.3.4", // Same address
+		Priority:       20,        // Different priority
+		Weight:         10,        // Different weight
+		Enable:         false,     // Different enable state
+		Description:    "new description",
+		Tags:           []string{"tag3", "tag4", "tag5"},
+		Timeout:        "10s",
+		Country:        "FR",
+		City:           "Paris",
+		ASN:            "64513",
+		Location:       "eu-west",
+		Latitude:       48.8566,
+		Longitude:      2.3522,
 		CoordinatesSet: true,
 		HealthChecks: []GenericHealthCheck{
 			&MockHealthCheck{},
@@ -231,30 +231,30 @@ func TestBackend_UpdateBackend(t *testing.T) {
 func TestBackend_UpdateBackend_NoChanges(t *testing.T) {
 	// Test that when fields are the same, no update occurs
 	b := &Backend{
-		Address:     "1.2.3.4",
-		Priority:    10,
-		Weight:      5,
-		Enable:      true,
-		Description: "same description",
-		Tags:        []string{"tag1"},
-		Timeout:     "5s",
-		Country:     "US",
-		Latitude:    40.7128,
-		Longitude:   -74.0060,
+		Address:        "1.2.3.4",
+		Priority:       10,
+		Weight:         5,
+		Enable:         true,
+		Description:    "same description",
+		Tags:           []string{"tag1"},
+		Timeout:        "5s",
+		Country:        "US",
+		Latitude:       40.7128,
+		Longitude:      -74.0060,
 		CoordinatesSet: true,
 	}
 
 	newBackend := &Backend{
-		Address:     "1.2.3.4",
-		Priority:    10,
-		Weight:      5,
-		Enable:      true,
-		Description: "same description",
-		Tags:        []string{"tag1"},
-		Timeout:     "5s",
-		Country:     "US",
-		Latitude:    40.7128,
-		Longitude:   -74.0060,
+		Address:        "1.2.3.4",
+		Priority:       10,
+		Weight:         5,
+		Enable:         true,
+		Description:    "same description",
+		Tags:           []string{"tag1"},
+		Timeout:        "5s",
+		Country:        "US",
+		Latitude:       40.7128,
+		Longitude:      -74.0060,
 		CoordinatesSet: true,
 	}
 

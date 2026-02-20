@@ -338,9 +338,14 @@ func (g *GSLB) handleTXTRecord(ctx context.Context, w dns.ResponseWriter, r *dns
 			}
 		}
 
+		responseTime := "N/A"
+		if rt := backend.GetResponseTime(); rt > 0 {
+			responseTime = rt.Round(time.Millisecond).String()
+		}
+
 		summary := fmt.Sprintf(
-			"Backend: %s | Priority: %d | Status: %s | Enabled: %v | LastHealthcheck: %s",
-			backend.GetAddress(), backend.GetPriority(), status, enabled, lastHealthcheck,
+			"Backend: %s | Priority: %d | Status: %s | Enabled: %v | LastHealthcheck: %s | ResponseTime: %s",
+			backend.GetAddress(), backend.GetPriority(), status, enabled, lastHealthcheck, responseTime,
 		)
 		// Add the summary to the list
 		summaries = append(summaries, summary)

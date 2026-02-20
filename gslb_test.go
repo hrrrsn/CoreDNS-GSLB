@@ -247,20 +247,22 @@ func TestGSLB_HandleTXTRecord(t *testing.T) {
 				strings.Contains(txt.Txt[0], "Priority: 10") &&
 				strings.Contains(txt.Txt[0], "Status: healthy") &&
 				strings.Contains(txt.Txt[0], "Enabled: true") &&
-				strings.Contains(txt.Txt[0], "LastHealthcheck:") {
+				strings.Contains(txt.Txt[0], "LastHealthcheck:") &&
+				strings.Contains(txt.Txt[0], "ResponseTime:") {
 				found1 = true
 			}
 			if strings.Contains(txt.Txt[0], "Backend: 192.168.1.2") &&
 				strings.Contains(txt.Txt[0], "Priority: 20") &&
 				strings.Contains(txt.Txt[0], "Status: unhealthy") &&
 				strings.Contains(txt.Txt[0], "Enabled: false") &&
-				strings.Contains(txt.Txt[0], "LastHealthcheck:") {
+				strings.Contains(txt.Txt[0], "LastHealthcheck:") &&
+				strings.Contains(txt.Txt[0], "ResponseTime:") {
 				found2 = true
 			}
 		}
 	}
-	assert.True(t, found1, "Expected TXT record for backend1 with LastHealthcheck")
-	assert.True(t, found2, "Expected TXT record for backend2 with LastHealthcheck")
+	assert.True(t, found1, "Expected TXT record for backend1 with LastHealthcheck and ResponseTime")
+	assert.True(t, found2, "Expected TXT record for backend2 with LastHealthcheck and ResponseTime")
 }
 
 func TestGetResolutionIdleTimeout_WithCustomValue(t *testing.T) {
